@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "parsec",
+  "version": "${version}",
+  "name": "parsec",
+  "description": "A lightweight Minecraft utility mod.",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/parsec/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "me.ludens.parsec.parsec"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
+
