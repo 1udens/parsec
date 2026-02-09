@@ -11,6 +11,6 @@ public class parsec implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         // This code runs only on the client side during startup
-        LOGGER.info("Parsec utility initialized. Ready for flight.");
+        LOGGER.info("Parsec utility initialized. Ready for flight...");
     }
 }
