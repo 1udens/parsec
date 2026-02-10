@@ -5,7 +5,7 @@ import net.minecraft.client.gui.DrawContext;
 
 public abstract class HudModule {
     public String name;
-    public boolean enabled = true; // You can toggle modules on/off later
+    public boolean enabled = true;
     public int x, y;
 
     public HudModule(String name, int x, int y) {
@@ -14,6 +14,5 @@ public abstract class HudModule {
         this.y = y;
     }
 
-    // Every module will implement its own way of drawing
     public abstract void render(DrawContext drawContext, TextRenderer textRenderer);
 }

@@ -6,7 +6,7 @@ import net.minecraft.client.gui.DrawContext;
 
 public class FpsModule extends HudModule {
     public FpsModule() {
-        super("FPS", 10, 10); // Default position
+        super("FPS", 10, 10);
     }
 
     @Override

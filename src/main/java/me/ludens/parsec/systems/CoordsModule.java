@@ -6,7 +6,6 @@ import net.minecraft.client.gui.DrawContext;
 
 public class CoordsModule extends HudModule {
     public CoordsModule() {
-        // We set y to 25 so it sits right below the FPS box (which is at 10)
         super("Coordinates", 10, 25);
     }
 
@@ -17,7 +16,6 @@ public class CoordsModule extends HudModule {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
 
-        // Get coordinates and format to 1 decimal place
         double xPos = client.player.getX();
         double yPos = client.player.getY();
         double zPos = client.player.getZ();
@@ -26,10 +24,8 @@ public class CoordsModule extends HudModule {
 
         int width = textRenderer.getWidth(text);
 
-        // Draw background
         drawContext.fill(x - 5, y - 5, x + width + 5, y + 12, 0xAA000000);
 
-        // Draw text in a nice light-purple/aqua color (0xFFFFFFAA for light blue)
         drawContext.drawText(textRenderer, text, x, y, 0xFFAAAAAA, true);
     }
 }
