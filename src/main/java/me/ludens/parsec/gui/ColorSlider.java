@@ -7,16 +7,15 @@ import net.minecraft.text.Text;
 public class ColorSlider extends SliderWidget {
     private final HudModule module;
     private final Channel channel;
-    private final Runnable onUpdate; // --- ADDED THIS ---
+    private final Runnable onUpdate;
 
     public enum Channel { RED, GREEN, BLUE }
 
-    // --- UPDATED CONSTRUCTOR ---
     public ColorSlider(int x, int y, int width, int height, HudModule module, Channel channel, Runnable onUpdate) {
         super(x, y, width, height, Text.of(""), 0);
         this.module = module;
         this.channel = channel;
-        this.onUpdate = onUpdate; // --- ADDED THIS ---
+        this.onUpdate = onUpdate;
         this.value = getChannelValue() / 255.0;
         updateMessage();
     }
@@ -46,7 +45,6 @@ public class ColorSlider extends SliderWidget {
 
         module.backgroundColor = (a << 24) | (r << 16) | (g << 8) | b;
 
-        // --- ADDED THIS ---
         if (onUpdate != null) onUpdate.run();
     }
 

@@ -23,8 +23,6 @@ public class CordsModule extends HudModule {
         String text = String.format("XYZ: %.1f, %.1f, %.1f", xPos, yPos, zPos);
         int width = textRenderer.getWidth(text);
 
-        // --- UPDATED THIS LINE ---
-        // Uses the centralized color from the parent class
         drawBackground(drawContext, width);
         // -------------------------
 

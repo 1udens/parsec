@@ -8,8 +8,6 @@ public abstract class HudModule {
     public boolean enabled;
     public int x, y;
 
-    // --- ADD THIS HERE ---
-    // Default: Semi-transparent black (0xAARRGGBB)
     public int backgroundColor = 0xAA000000;
 
     public HudModule(String name, int x, int y) {
@@ -19,10 +17,6 @@ public abstract class HudModule {
         this.enabled = false;
     }
 
-    // --- ADD THIS HERE ---
-    /**
-     * Updates the background color based on a hex string and alpha percentage.
-     */
     public void updateColor(String hex, int alphaPercent) {
         try {
             String cleanHex = hex.replace("#", "");
@@ -37,10 +31,6 @@ public abstract class HudModule {
         }
     }
 
-    // --- ADD THIS HELPER HERE ---
-    /**
-     * Draws the background box for the module.
-     */
     protected void drawBackground(DrawContext context, int width) {
         context.fill(x - 5, y - 5, x + width + 5, y + 12, this.backgroundColor);
     }

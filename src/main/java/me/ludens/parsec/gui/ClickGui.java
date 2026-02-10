@@ -25,7 +25,6 @@ public class ClickGui extends Screen {
     protected void init() {
         int yOffset = 20;
 
-        // 1. Module Buttons (Left side)
         for (HudModule module : ModuleRenderer.modules) {
             this.addDrawableChild(ButtonWidget.builder(Text.of(module.name), button -> {
                 this.selectedModule = module;
@@ -34,8 +33,6 @@ public class ClickGui extends Screen {
             yOffset += 25;
         }
 
-        // 2. Settings Panel (Right side)
-        // Toggle
         toggleButton = ButtonWidget.builder(Text.of("Status: Unknown"), button -> {
             if (selectedModule != null) {
                 selectedModule.enabled = !selectedModule.enabled;

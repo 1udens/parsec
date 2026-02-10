@@ -10,10 +10,6 @@ public class ModuleRenderer {
         modules.add(module);
     }
 
-    /**
-     * Finds a module by its display name.
-     * Useful for identifying which module to toggle or edit in the GUI.
-     */
     public static HudModule getModuleByName(String name) {
         return modules.stream()
                 .filter(m -> m.name.equalsIgnoreCase(name))

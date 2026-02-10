@@ -25,14 +25,10 @@ public class parsec implements ClientModInitializer {
         LOGGER.info("Parsec utility initialized.");
 
         FpsModule fps = new FpsModule();
-        CordsModule coords = new CordsModule();
-
-        // Temporarily force them to be enabled so you can see them!
-        fps.enabled = true;
-        coords.enabled = true;
+        CordsModule cords = new CordsModule();
 
         ModuleRenderer.addModule(fps);
-        ModuleRenderer.addModule(coords);
+        ModuleRenderer.addModule(cords);
 
         HudElementRegistry.addFirst(
                 Identifier.of(MOD_ID, "hud_modules"),
