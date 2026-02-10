@@ -4,8 +4,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 
-public class CoordsModule extends HudModule {
-    public CoordsModule() {
+public class CordsModule extends HudModule {
+    public CordsModule() {
         super("Coordinates", 10, 25);
     }
 

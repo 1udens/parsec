@@ -1,15 +1,16 @@
 package me.ludens.parsec;
 
-import me.ludens.parsec.systems.CoordsModule;
+import me.ludens.parsec.systems.CordsModule;
 import me.ludens.parsec.systems.FpsModule;
 import me.ludens.parsec.systems.ModuleRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,16 +25,19 @@ public class parsec implements ClientModInitializer {
         LOGGER.info("Parsec utility initialized.");
 
         ModuleRenderer.addModule(new FpsModule());
-        ModuleRenderer.addModule(new CoordsModule());
+        ModuleRenderer.addModule(new CordsModule());
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player == null || client.options.hudHidden) return;
+        HudElementRegistry.addFirst(
+                Identifier.of(MOD_ID, "hud_modules"),
+                (net.minecraft.client.gui.DrawContext drawContext, net.minecraft.client.render.RenderTickCounter tickCounter) -> {
+                    MinecraftClient client = MinecraftClient.getInstance();
+                    if (client.player == null || client.options.hudHidden) return;
 
-            ModuleRenderer.modules.forEach(module ->
-                    module.render(drawContext, client.textRenderer)
-            );
-        });
+                    ModuleRenderer.modules.forEach(module ->
+                            module.render(drawContext, client.textRenderer)
+                    );
+                }
+        );
 
         mappingKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.parsec.open_gui",
@@ -42,7 +46,6 @@ public class parsec implements ClientModInitializer {
                 KeyBinding.Category.MISC
         ));
 
-        // 4. Listen for keypress
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (mappingKey.wasPressed()) {
                 client.setScreen(new me.ludens.parsec.gui.ClickGui());
