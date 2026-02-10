@@ -21,10 +21,12 @@ public class CordsModule extends HudModule {
         double zPos = client.player.getZ();
 
         String text = String.format("XYZ: %.1f, %.1f, %.1f", xPos, yPos, zPos);
-
         int width = textRenderer.getWidth(text);
 
-        drawContext.fill(x - 5, y - 5, x + width + 5, y + 12, 0xAA000000);
+        // --- UPDATED THIS LINE ---
+        // Uses the centralized color from the parent class
+        drawBackground(drawContext, width);
+        // -------------------------
 
         drawContext.drawText(textRenderer, text, x, y, 0xFFAAAAAA, true);
     }

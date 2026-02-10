@@ -14,10 +14,11 @@ public class FpsModule extends HudModule {
         if (!enabled) return;
 
         int fps = MinecraftClient.getInstance().getCurrentFps();
-        String text = fps + "FPS";
-
+        String text = fps + " FPS";
         int width = textRenderer.getWidth(text);
-        drawContext.fill(x - 5, y - 5, x + width + 5, y + 12, 0xAA000000);
+
+        drawBackground(drawContext, width);
+
         drawContext.drawText(textRenderer, text, x, y, 0xFFFFFFFF, true);
     }
 }

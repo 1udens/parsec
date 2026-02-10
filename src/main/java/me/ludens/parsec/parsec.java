@@ -24,12 +24,19 @@ public class parsec implements ClientModInitializer {
     public void onInitializeClient() {
         LOGGER.info("Parsec utility initialized.");
 
-        ModuleRenderer.addModule(new FpsModule());
-        ModuleRenderer.addModule(new CordsModule());
+        FpsModule fps = new FpsModule();
+        CordsModule coords = new CordsModule();
+
+        // Temporarily force them to be enabled so you can see them!
+        fps.enabled = true;
+        coords.enabled = true;
+
+        ModuleRenderer.addModule(fps);
+        ModuleRenderer.addModule(coords);
 
         HudElementRegistry.addFirst(
                 Identifier.of(MOD_ID, "hud_modules"),
-                (net.minecraft.client.gui.DrawContext drawContext, net.minecraft.client.render.RenderTickCounter tickCounter) -> {
+                (drawContext, tickCounter) -> {
                     MinecraftClient client = MinecraftClient.getInstance();
                     if (client.player == null || client.options.hudHidden) return;
 
