@@ -5,6 +5,11 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 
 public class CordsModule extends HudModule {
+    private String cachedText = "";
+    private int lastX = Integer.MAX_VALUE;
+    private int lastY = Integer.MAX_VALUE;
+    private int lastZ = Integer.MAX_VALUE;
+
     public CordsModule() {
         super("Coordinates", 10, 25);
     }
@@ -16,15 +21,20 @@ public class CordsModule extends HudModule {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
 
-        double xPos = client.player.getX();
-        double yPos = client.player.getY();
-        double zPos = client.player.getZ();
+        int xPos = (int) client.player.getX();
+        int yPos = (int) client.player.getY();
+        int zPos = (int) client.player.getZ();
 
-        String text = String.format("XYZ: %.1f, %.1f, %.1f", xPos, yPos, zPos);
-        int width = textRenderer.getWidth(text);
+        // Only update text if position changed
+        if (xPos != lastX || yPos != lastY || zPos != lastZ) {
+            cachedText = String.format("XYZ: %d, %d, %d", xPos, yPos, zPos);
+            lastX = xPos;
+            lastY = yPos;
+            lastZ = zPos;
+        }
 
+        int width = textRenderer.getWidth(cachedText);
         drawBackground(drawContext, width);
-
-        drawContext.drawText(textRenderer, text, x, y, 0xFFAAAAAA, true);
+        drawContext.drawText(textRenderer, cachedText, x, y, 0xFFAAAAAA, true);
     }
 }
