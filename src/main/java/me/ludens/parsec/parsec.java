@@ -14,21 +14,25 @@ import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import me.ludens.parsec.config.ConfigManager;
 
 public class parsec implements ClientModInitializer {
     public static final String MOD_ID = "parsec";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     private static KeyBinding mappingKey;
 
+    private void registerModules() {
+        ModuleRenderer.addModule(new FpsModule());
+        ModuleRenderer.addModule(new CordsModule());
+        // Future modules go here
+    }
+
     @Override
     public void onInitializeClient() {
         LOGGER.info("Parsec utility initialized.");
 
-        FpsModule fps = new FpsModule();
-        CordsModule cords = new CordsModule();
-
-        ModuleRenderer.addModule(fps);
-        ModuleRenderer.addModule(cords);
+        registerModules();
+        ConfigManager.load();
 
         HudElementRegistry.addFirst(
                 Identifier.of(MOD_ID, "hud_modules"),

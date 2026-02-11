@@ -9,6 +9,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import java.util.ArrayList;
 import java.util.List;
+import me.ludens.parsec.config.ConfigManager;
 
 public class ClickGui extends Screen {
     // UI Layout Constants
@@ -156,5 +157,11 @@ public class ClickGui extends Screen {
     @Override
     public boolean shouldPause() {
         return false;
+    }
+
+    @Override
+    public void close() {
+        ConfigManager.save();
+        super.close();
     }
 }
