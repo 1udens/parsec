@@ -16,7 +16,12 @@ public class ColorSlider extends SliderWidget {
         this.module = module;
         this.channel = channel;
         this.onUpdate = onUpdate;
-        this.value = getChannelValue() / 255.0;
+
+        if (module != null) {
+            this.value = getChannelValue() / 255.0;
+        } else {
+            this.value = 0;
+        }
         updateMessage();
     }
 

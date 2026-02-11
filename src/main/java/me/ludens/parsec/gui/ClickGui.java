@@ -11,6 +11,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ClickGui extends Screen {
+    // UI Layout Constants
+    private static final int MODULE_LIST_X = 20;
+    private static final int MODULE_LIST_START_Y = 20;
+    private static final int MODULE_BUTTON_SPACING = 25;
+    private static final int MODULE_BUTTON_WIDTH = 100;
+    private static final int MODULE_BUTTON_HEIGHT = 20;
+    private static final int SETTINGS_X = 150;
+
+    // Keep these existing variables!
     private HudModule selectedModule = null;
     private ButtonWidget toggleButton;
     private TextFieldWidget hexInput;
@@ -23,14 +32,14 @@ public class ClickGui extends Screen {
 
     @Override
     protected void init() {
-        int yOffset = 20;
+        int yOffset = MODULE_LIST_START_Y;
 
         for (HudModule module : ModuleRenderer.modules) {
             this.addDrawableChild(ButtonWidget.builder(Text.of(module.name), button -> {
                 this.selectedModule = module;
                 updateSettingsPanel();
-            }).dimensions(20, yOffset, 100, 20).build());
-            yOffset += 25;
+            }).dimensions(MODULE_LIST_X, yOffset, MODULE_BUTTON_WIDTH, MODULE_BUTTON_HEIGHT).build());
+            yOffset += MODULE_BUTTON_SPACING;
         }
 
         toggleButton = ButtonWidget.builder(Text.of("Status: Unknown"), button -> {
@@ -38,17 +47,17 @@ public class ClickGui extends Screen {
                 selectedModule.enabled = !selectedModule.enabled;
                 updateToggleButtonText();
             }
-        }).dimensions(150, 40, 100, 20).build();
+        }).dimensions(SETTINGS_X, 40, 100, 20).build();
         this.addDrawableChild(toggleButton);
 
         // Hex Input
-        hexInput = new TextFieldWidget(textRenderer, 150, 70, 80, 20, Text.of("Hex"));
+        hexInput = new TextFieldWidget(textRenderer, SETTINGS_X, 70, 80, 20, Text.of("Hex"));
         hexInput.setMaxLength(7);
         hexInput.setChangedListener(this::onHexChanged);
         this.addDrawableChild(hexInput);
 
         // Alpha Input
-        alphaInput = new TextFieldWidget(textRenderer, 150, 100, 40, 20, Text.of("Alpha"));
+        alphaInput = new TextFieldWidget(textRenderer, SETTINGS_X, 100, 40, 20, Text.of("Alpha"));
         alphaInput.setChangedListener(this::onAlphaChanged);
         this.addDrawableChild(alphaInput);
 
@@ -56,7 +65,7 @@ public class ClickGui extends Screen {
         colorSliders.clear();
         int sliderY = 130;
         for (ColorSlider.Channel channel : ColorSlider.Channel.values()) {
-            ColorSlider slider = new ColorSlider(150, sliderY, 100, 20, selectedModule, channel, () -> {
+            ColorSlider slider = new ColorSlider(SETTINGS_X, sliderY, 100, 20, selectedModule, channel, () -> {
                 if (selectedModule != null) {
                     hexInput.setText(String.format("#%06X", (selectedModule.backgroundColor & 0xFFFFFF)));
                 }
@@ -89,12 +98,22 @@ public class ClickGui extends Screen {
     }
 
     private void onAlphaChanged(String newAlpha) {
-        if (selectedModule != null && !newAlpha.isEmpty()) {
-            try {
-                int a = Integer.parseInt(newAlpha);
-                if (a > 100) a = 100;
-                selectedModule.updateColor(hexInput.getText(), a);
-            } catch (NumberFormatException ignored) {}
+        if (selectedModule == null || newAlpha.isEmpty()) return;
+
+        try {
+            int a = Integer.parseInt(newAlpha);
+            // Clamp between 0-100
+            if (a < 0) a = 0;
+            if (a > 100) a = 100;
+
+            // Update the text field if we clamped it
+            if (!newAlpha.equals(String.valueOf(a))) {
+                alphaInput.setText(String.valueOf(a));
+            }
+
+            selectedModule.updateColor(hexInput.getText(), a);
+        } catch (NumberFormatException ignored) {
+            // Invalid number, ignore
         }
     }
 

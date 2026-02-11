@@ -24,7 +24,6 @@ public class CordsModule extends HudModule {
         int width = textRenderer.getWidth(text);
 
         drawBackground(drawContext, width);
-        // -------------------------
 
         drawContext.drawText(textRenderer, text, x, y, 0xFFAAAAAA, true);
     }
