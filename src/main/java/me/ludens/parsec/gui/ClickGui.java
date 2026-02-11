@@ -120,11 +120,15 @@ public class ClickGui extends Screen {
     private void updateSettingsPanel() {
         if (selectedModule == null) return;
 
-        // Save current values to restore after re-init
-        String hex = String.format("#%06X", (selectedModule.backgroundColor & 0xFFFFFF));
-        String alpha = String.valueOf((int)((selectedModule.backgroundColor >> 24 & 0xFF) / 2.55));
+        // Extract current alpha directly (0-255)
+        int alphaValue = (selectedModule.backgroundColor >> 24) & 0xFF;
+        // Convert to percentage: round to nearest integer
+        int alphaPercent = Math.round(alphaValue / 2.55f);
 
-        this.clearAndInit(); // Refresh UI
+        String hex = String.format("#%06X", (selectedModule.backgroundColor & 0xFFFFFF));
+        String alpha = String.valueOf(alphaPercent);
+
+        this.clearAndInit();
 
         hexInput.setText(hex);
         alphaInput.setText(alpha);
