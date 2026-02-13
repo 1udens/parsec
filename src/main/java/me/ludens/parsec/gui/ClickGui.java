@@ -56,8 +56,6 @@ public class ClickGui extends Screen {
         }).dimensions(SETTINGS_X, 40, 100, 20).build();
         this.addDrawableChild(toggleButton);
 
-        this.addDrawableChild(toggleButton);
-
         keybindButton = ButtonWidget.builder(Text.of("Key: None"), button -> {
             awaitingKeybind = true;
             button.setMessage(Text.of("Press a key..."));
@@ -66,12 +64,6 @@ public class ClickGui extends Screen {
 
         // Hex Input
         hexInput = new TextFieldWidget(textRenderer, SETTINGS_X, 70, 80, 20, Text.of("Hex"));
-
-        // Hex Input
-        hexInput = new TextFieldWidget(textRenderer, SETTINGS_X, 70, 80, 20, Text.of("Hex"));
-        hexInput.setMaxLength(7);
-        hexInput.setChangedListener(this::onHexChanged);
-        this.addDrawableChild(hexInput);
 
         // Alpha Input
         alphaInput = new TextFieldWidget(textRenderer, SETTINGS_X, 100, 40, 20, Text.of("Alpha"));

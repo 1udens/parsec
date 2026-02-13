@@ -26,19 +26,17 @@ public class KeybindManager {
             module.keyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                     "key.parsec.toggle_" + module.name.toLowerCase().replace(" ", "_"),
                     InputUtil.Type.KEYSYM,
-                    GLFW.GLFW_KEY_UNKNOWN, // Unbound by default
+                    GLFW.GLFW_KEY_UNKNOWN,
                     KeyBinding.Category.MISC
             ));
         }
 
         // Register tick event to handle keypresses
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // Handle GUI key
             while (GUI_KEY.wasPressed()) {
                 client.setScreen(new me.ludens.parsec.gui.ClickGui());
             }
 
-            // Handle module toggle keys
             for (HudModule module : ModuleRenderer.modules) {
                 while (module.keyBinding.wasPressed()) {
                     module.enabled = !module.enabled;
