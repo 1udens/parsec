@@ -2,6 +2,7 @@ package me.ludens.parsec.systems;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.option.KeyBinding;
 
 public abstract class HudModule {
     public String name;
@@ -9,6 +10,7 @@ public abstract class HudModule {
     public int x, y;
 
     public int backgroundColor = 0xAA000000;
+    public KeyBinding keyBinding;
 
     public HudModule(String name, int x, int y) {
         this.name = name;

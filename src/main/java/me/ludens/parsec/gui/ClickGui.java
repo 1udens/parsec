@@ -10,6 +10,9 @@ import net.minecraft.text.Text;
 import java.util.ArrayList;
 import java.util.List;
 import me.ludens.parsec.config.ConfigManager;
+import me.ludens.parsec.input.KeybindManager;
+import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.util.InputUtil;
 
 public class ClickGui extends Screen {
     // UI Layout Constants
@@ -26,6 +29,8 @@ public class ClickGui extends Screen {
     private TextFieldWidget hexInput;
     private TextFieldWidget alphaInput;
     private final List<ColorSlider> colorSliders = new ArrayList<>();
+    private ButtonWidget keybindButton;
+    private boolean awaitingKeybind = false;
 
     public ClickGui() {
         super(Text.of("Parsec ClickGUI"));
@@ -50,6 +55,17 @@ public class ClickGui extends Screen {
             }
         }).dimensions(SETTINGS_X, 40, 100, 20).build();
         this.addDrawableChild(toggleButton);
+
+        this.addDrawableChild(toggleButton);
+
+        keybindButton = ButtonWidget.builder(Text.of("Key: None"), button -> {
+            awaitingKeybind = true;
+            button.setMessage(Text.of("Press a key..."));
+        }).dimensions(SETTINGS_X, 210, 100, 20).build();
+        this.addDrawableChild(keybindButton);
+
+        // Hex Input
+        hexInput = new TextFieldWidget(textRenderer, SETTINGS_X, 70, 80, 20, Text.of("Hex"));
 
         // Hex Input
         hexInput = new TextFieldWidget(textRenderer, SETTINGS_X, 70, 80, 20, Text.of("Hex"));
@@ -121,9 +137,7 @@ public class ClickGui extends Screen {
     private void updateSettingsPanel() {
         if (selectedModule == null) return;
 
-        // Extract current alpha directly (0-255)
         int alphaValue = (selectedModule.backgroundColor >> 24) & 0xFF;
-        // Convert to percentage: round to nearest integer
         int alphaPercent = Math.round(alphaValue / 2.55f);
 
         String hex = String.format("#%06X", (selectedModule.backgroundColor & 0xFFFFFF));
@@ -134,16 +148,52 @@ public class ClickGui extends Screen {
         hexInput.setText(hex);
         alphaInput.setText(alpha);
         updateToggleButtonText();
+        updateKeybindButtonText(); // Add this line
         hideSettings(false);
+    }
+
+    private void updateKeybindButtonText() {
+        if (selectedModule != null && keybindButton != null) {
+            int keyCode = selectedModule.keyBinding.getKeyInput().getCode();
+            if (keyCode == GLFW.GLFW_KEY_UNKNOWN) {
+                keybindButton.setMessage(Text.of("Key: None"));
+            } else {
+                String keyName = GLFW.glfwGetKeyName(keyCode, 0);
+                if (keyName == null) keyName = "Unknown";
+                keybindButton.setMessage(Text.of("Key: " + keyName.toUpperCase()));
+            }
+        }
     }
 
     private void hideSettings(boolean hide) {
         if (toggleButton != null) toggleButton.visible = !hide;
+        if (keybindButton != null) keybindButton.visible = !hide; // Add this line
         if (hexInput != null) hexInput.setVisible(!hide);
         if (alphaInput != null) alphaInput.setVisible(!hide);
         for (ColorSlider slider : colorSliders) {
             slider.visible = !hide;
         }
+    }
+
+    @Override
+    public boolean keyPressed(InputUtil.KeyInput keyInput) {
+        if (awaitingKeybind && selectedModule != null) {
+            awaitingKeybind = false;
+            int keyCode = keyInput.getCode();
+
+            // Allow ESC or BACKSPACE to unbind
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                selectedModule.keyBinding.setKeyInput(InputUtil.fromKeyCode(GLFW.GLFW_KEY_UNKNOWN));
+                keybindButton.setMessage(Text.of("Key: None"));
+            } else {
+                selectedModule.keyBinding.setKeyInput(keyInput);
+                String keyName = GLFW.glfwGetKeyName(keyCode, 0);
+                if (keyName == null) keyName = "Unknown";
+                keybindButton.setMessage(Text.of("Key: " + keyName.toUpperCase()));
+            }
+            return true;
+        }
+        return super.keyPressed(keyInput);
     }
 
     @Override
