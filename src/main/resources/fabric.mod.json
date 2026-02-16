@@ -11,7 +11,7 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "me.ludens.parsec.parsec"
+      "me.ludens.parsec.Parsec"
     ]
   },
   "depends": {

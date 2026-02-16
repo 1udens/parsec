@@ -2,28 +2,42 @@ package me.ludens.parsec.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import me.ludens.parsec.Parsec;
 import me.ludens.parsec.input.KeybindManager;
-import me.ludens.parsec.parsec;
 import me.ludens.parsec.systems.HudModule;
-import me.ludens.parsec.systems.ModuleRenderer;
+import me.ludens.parsec.systems.ModuleManager;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.lang.reflect.Method;
+import java.io.*;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Handles saving and loading configuration to/from JSON files.
+ * 
+ * Learning Note: GSON is a library that converts Java objects to JSON
+ * and vice versa. This makes it easy to save configuration.
+ */
 public class ConfigManager {
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    // GSON instance with pretty printing enabled
+    private static final Gson GSON = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
+    
+    // File locations
     private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir();
     private static final File CONFIG_FILE = CONFIG_DIR.resolve("parsec.json").toFile();
 
+    /**
+     * Save all module settings to config file.
+     * 
+     * Learning Note: This uses try-with-resources (try (...)) which automatically
+     * closes the FileWriter when done, even if an error occurs.
+     */
     public static void save() {
         try {
             ConfigData data = new ConfigData();
@@ -31,117 +45,178 @@ public class ConfigManager {
             // Save GUI keybind
             try {
                 Integer code = getKeyCode(KeybindManager.GUI_KEY);
-                if (code != null) data.guiKeybind = code;
-            } catch (Exception ignored) {}
+                if (code != null && code != GLFW.GLFW_KEY_UNKNOWN) {
+                    data.guiKeybind = code;
+                }
+            } catch (Exception e) {
+                Parsec.LOGGER.warn("Failed to save GUI keybind", e);
+            }
 
-            // Save module data
-            for (HudModule module : ModuleRenderer.modules) {
+            // Save each module's settings
+            for (HudModule module : ModuleManager.INSTANCE.getModules()) {
                 ModuleConfig config = new ModuleConfig();
-                config.enabled = module.enabled;
-                config.x = module.x;
-                config.y = module.y;
-                config.backgroundColor = module.backgroundColor;
+                config.enabled = module.isEnabled();
+                config.x = module.getX();
+                config.y = module.getY();
+                config.backgroundColor = module.getBackgroundColor();
+                config.textColor = module.getTextColor();
 
+                // Save module keybind
                 try {
-                    Integer code = getKeyCode(module.keyBinding);
+                    Integer code = getKeyCode(module.getKeyBinding());
                     config.keybind = (code != null) ? code : GLFW.GLFW_KEY_UNKNOWN;
                 } catch (Exception e) {
                     config.keybind = GLFW.GLFW_KEY_UNKNOWN;
+                    Parsec.LOGGER.warn("Failed to save keybind for {}", module.getName(), e);
                 }
 
-                data.modules.put(module.name, config);
+                data.modules.put(module.getName(), config);
             }
 
+            // Ensure config directory exists
+            if (!CONFIG_DIR.toFile().exists()) {
+                CONFIG_DIR.toFile().mkdirs();
+            }
+
+            // Write to file
             try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
                 GSON.toJson(data, writer);
             }
-            parsec.LOGGER.info("Config saved successfully");
+            
+            Parsec.LOGGER.info("Config saved successfully to {}", CONFIG_FILE.getPath());
         } catch (Exception e) {
-            parsec.LOGGER.error("Failed to save config", e);
+            Parsec.LOGGER.error("Failed to save config", e);
         }
     }
 
+    /**
+     * Load all module settings from config file.
+     */
     public static void load() {
         if (!CONFIG_FILE.exists()) {
-            parsec.LOGGER.info("No config file found, using defaults");
+            Parsec.LOGGER.info("No config file found at {}, using defaults", CONFIG_FILE.getPath());
             return;
         }
 
         try (FileReader reader = new FileReader(CONFIG_FILE)) {
             ConfigData data = GSON.fromJson(reader, ConfigData.class);
-            if (data == null) return;
+            if (data == null) {
+                Parsec.LOGGER.warn("Config file is empty or invalid");
+                return;
+            }
 
             // Load GUI keybind
-            if (data.guiKeybind != 0) {
+            if (data.guiKeybind != 0 && data.guiKeybind != GLFW.GLFW_KEY_UNKNOWN) {
                 try {
                     setKeyCode(KeybindManager.GUI_KEY, data.guiKeybind);
                 } catch (Exception e) {
-                    parsec.LOGGER.warn("Failed to restore GUI keybind", e);
+                    Parsec.LOGGER.warn("Failed to restore GUI keybind", e);
                 }
             }
 
-            // Load module data
-            for (HudModule module : ModuleRenderer.modules) {
-                ModuleConfig config = data.modules.get(module.name);
+            // Load each module's settings
+            for (HudModule module : ModuleManager.INSTANCE.getModules()) {
+                ModuleConfig config = data.modules.get(module.getName());
                 if (config != null) {
-                    module.enabled = config.enabled;
-                    module.x = config.x;
-                    module.y = config.y;
-                    module.backgroundColor = config.backgroundColor;
+                    // Restore module state
+                    module.setEnabled(config.enabled);
+                    module.setX(config.x);
+                    module.setY(config.y);
+                    module.setBackgroundColor(config.backgroundColor);
+                    module.setTextColor(config.textColor);
 
-                    if (config.keybind != 0 && module.keyBinding != null) {
+                    // Restore keybind
+                    if (config.keybind != 0 && config.keybind != GLFW.GLFW_KEY_UNKNOWN) {
                         try {
-                            setKeyCode(module.keyBinding, config.keybind);
+                            setKeyCode(module.getKeyBinding(), config.keybind);
                         } catch (Exception e) {
-                            parsec.LOGGER.warn("Failed to restore keybind for " + module.name, e);
+                            Parsec.LOGGER.warn("Failed to restore keybind for {}", 
+                                module.getName(), e);
                         }
                     }
+                } else {
+                    Parsec.LOGGER.debug("No config found for module: {}", module.getName());
                 }
             }
 
-            parsec.LOGGER.info("Config loaded successfully");
+            Parsec.LOGGER.info("Config loaded successfully from {}", CONFIG_FILE.getPath());
+        } catch (FileNotFoundException e) {
+            Parsec.LOGGER.warn("Config file not found: {}", CONFIG_FILE.getPath());
         } catch (Exception e) {
-            parsec.LOGGER.error("Failed to load config", e);
+            Parsec.LOGGER.error("Failed to load config", e);
         }
     }
 
+    /**
+     * Get the key code from a KeyBinding.
+     * 
+     * Learning Note: We use reflection here because KeyBinding's internal
+     * structure might vary between Minecraft versions.
+     */
     public static Integer getKeyCode(KeyBinding kb) {
         if (kb == null) return null;
+        
         try {
-            Method getBoundKey = kb.getClass().getMethod("getBoundKey");
-            Object boundKey = getBoundKey.invoke(kb);
-            if (boundKey != null) {
-                Method getCode = boundKey.getClass().getMethod("getCode");
-                return (Integer) getCode.invoke(boundKey);
-            }
+            return kb.getBoundKey().getCode();
         } catch (Exception e) {
-            parsec.LOGGER.warn("Failed to get key code", e);
+            Parsec.LOGGER.debug("Failed to get key code", e);
+            return GLFW.GLFW_KEY_UNKNOWN;
         }
-        return GLFW.GLFW_KEY_UNKNOWN;
     }
 
+    /**
+     * Set a key code for a KeyBinding.
+     */
     public static void setKeyCode(KeyBinding kb, int code) {
         if (kb == null) return;
+        
         try {
-            // Get the Key object
             InputUtil.Key key = InputUtil.fromKeyCode(code, -1);
-            // Set it on the binding
-            Method setBoundKey = kb.getClass().getMethod("setBoundKey", InputUtil.Key.class);
-            setBoundKey.invoke(kb, key);
+            kb.setBoundKey(key);
         } catch (Exception e) {
-            parsec.LOGGER.warn("Failed to set key code", e);
+            Parsec.LOGGER.warn("Failed to set key code", e);
         }
     }
 
+    /**
+     * Reset all settings to defaults.
+     * Useful for troubleshooting or starting fresh.
+     */
+    public static void reset() {
+        if (CONFIG_FILE.exists()) {
+            CONFIG_FILE.delete();
+            Parsec.LOGGER.info("Config file deleted");
+        }
+        
+        // Disable all modules and reset positions
+        for (HudModule module : ModuleManager.INSTANCE.getModules()) {
+            module.setEnabled(false);
+            module.setBackgroundColor(0xAA000000);
+            module.setTextColor(0xFFFFFFFF);
+        }
+        
+        Parsec.LOGGER.info("Config reset to defaults");
+    }
+
+    /**
+     * Inner class representing the entire config file structure.
+     * 
+     * Learning Note: This is a POJO (Plain Old Java Object) that GSON
+     * will serialize to JSON automatically.
+     */
     private static class ConfigData {
         int guiKeybind = GLFW.GLFW_KEY_RIGHT_SHIFT;
         Map<String, ModuleConfig> modules = new HashMap<>();
     }
 
+    /**
+     * Inner class representing a single module's configuration.
+     */
     private static class ModuleConfig {
         boolean enabled;
         int x, y;
         int backgroundColor;
+        int textColor;
         int keybind = GLFW.GLFW_KEY_UNKNOWN;
     }
 }
