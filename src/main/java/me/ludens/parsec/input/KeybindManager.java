@@ -1,30 +1,48 @@
 package me.ludens.parsec.input;
 
+import me.ludens.parsec.parsec;
+import me.ludens.parsec.systems.HudModule;
+import me.ludens.parsec.systems.ModuleRenderer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Simple keybind manager for Parsec.
- * Adjust category and default key as you like.
- */
-public final class KeybindManager {
-    // Example GUI key (Right Shift by default)
-    public static final KeyBinding GUI_KEY = KeyBindingHelper.registerKeyBinding(
-            new KeyBinding(
-                    "key.parsec.gui",
-                    InputUtil.Type.KEYSYM,
-                    GLFW.GLFW_KEY_RIGHT_SHIFT,
-                    "category.parsec"
-            )
-    );
+public class KeybindManager {
+    public static KeyBinding GUI_KEY;
 
-    private KeybindManager() {}
-
-    // Keep this method so existing code that calls KeybindManager.register() still works.
     public static void register() {
-        // Registration is done at static init via KeyBindingHelper.registerKeyBinding.
-        // This method exists for compatibility with older code.
+        // Register GUI keybind
+        GUI_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.parsec.open_gui",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_RIGHT_SHIFT,
+                KeyBinding.Category.MISC
+        ));
+
+        // Register module keybinds
+        for (HudModule module : ModuleRenderer.modules) {
+            module.keyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                    "key.parsec.toggle_" + module.name.toLowerCase().replace(" ", "_"),
+                    InputUtil.Type.KEYSYM,
+                    GLFW.GLFW_KEY_UNKNOWN,
+                    KeyBinding.Category.MISC
+            ));
+        }
+
+        // Register tick event
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (GUI_KEY.wasPressed()) {
+                client.setScreen(new me.ludens.parsec.gui.ClickGui());
+            }
+
+            for (HudModule module : ModuleRenderer.modules) {
+                while (module.keyBinding.wasPressed()) {
+                    module.enabled = !module.enabled;
+                    parsec.LOGGER.info("Toggled {} {}", module.name, module.enabled ? "ON" : "OFF");
+                }
+            }
+        });
     }
 }

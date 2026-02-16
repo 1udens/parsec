@@ -14,16 +14,11 @@ import org.lwjgl.glfw.GLFW;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Config manager that serializes keybinds and module data.
- * Uses reflection to support multiple KeyBinding/InputUtil APIs across mappings.
- */
 public class ConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir();
@@ -33,10 +28,10 @@ public class ConfigManager {
         try {
             ConfigData data = new ConfigData();
 
-            // Save GUI keybind (resilient)
+            // Save GUI keybind
             try {
-                Integer guiCode = getKeyCodeFromKeyBinding(KeybindManager.GUI_KEY);
-                if (guiCode != null) data.guiKeybind = guiCode;
+                Integer code = getKeyCode(KeybindManager.GUI_KEY);
+                if (code != null) data.guiKeybind = code;
             } catch (Exception ignored) {}
 
             // Save module data
@@ -48,7 +43,7 @@ public class ConfigManager {
                 config.backgroundColor = module.backgroundColor;
 
                 try {
-                    Integer code = getKeyCodeFromKeyBinding(module.keyBinding);
+                    Integer code = getKeyCode(module.keyBinding);
                     config.keybind = (code != null) ? code : GLFW.GLFW_KEY_UNKNOWN;
                 } catch (Exception e) {
                     config.keybind = GLFW.GLFW_KEY_UNKNOWN;
@@ -76,11 +71,10 @@ public class ConfigManager {
             ConfigData data = GSON.fromJson(reader, ConfigData.class);
             if (data == null) return;
 
-            // Load GUI keybind (resilient)
+            // Load GUI keybind
             if (data.guiKeybind != 0) {
                 try {
-                    Object keyObj = buildKeyInputFromCode(data.guiKeybind);
-                    setKeyBindingKey(KeybindManager.GUI_KEY, keyObj);
+                    setKeyCode(KeybindManager.GUI_KEY, data.guiKeybind);
                 } catch (Exception e) {
                     parsec.LOGGER.warn("Failed to restore GUI keybind", e);
                 }
@@ -97,10 +91,9 @@ public class ConfigManager {
 
                     if (config.keybind != 0 && module.keyBinding != null) {
                         try {
-                            Object keyObj = buildKeyInputFromCode(config.keybind);
-                            setKeyBindingKey(module.keyBinding, keyObj);
+                            setKeyCode(module.keyBinding, config.keybind);
                         } catch (Exception e) {
-                            parsec.LOGGER.warn("Failed to restore keybind for module " + module.name, e);
+                            parsec.LOGGER.warn("Failed to restore keybind for " + module.name, e);
                         }
                     }
                 }
@@ -112,26 +105,43 @@ public class ConfigManager {
         }
     }
 
-    // Try to extract an integer key code from a KeyBinding using multiple possible APIs
-    private static Integer getKeyCodeFromKeyBinding(KeyBinding kb) {
+    public static Integer getKeyCode(KeyBinding kb) {
         if (kb == null) return null;
         try {
-            // Try modern API: getBoundKey().getCode()
             Method getBoundKey = kb.getClass().getMethod("getBoundKey");
             Object boundKey = getBoundKey.invoke(kb);
             if (boundKey != null) {
                 Method getCode = boundKey.getClass().getMethod("getCode");
-                Object codeObj = getCode.invoke(boundKey);
-                if (codeObj instanceof Integer) return (Integer) codeObj;
+                return (Integer) getCode.invoke(boundKey);
             }
-        } catch (NoSuchMethodException ignored) {
-            // fallthrough to older API
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            parsec.LOGGER.warn("Reflection error reading getBoundKey()", e);
+        } catch (Exception e) {
+            parsec.LOGGER.warn("Failed to get key code", e);
         }
+        return GLFW.GLFW_KEY_UNKNOWN;
+    }
 
+    public static void setKeyCode(KeyBinding kb, int code) {
+        if (kb == null) return;
         try {
-            // Try older API: getKeyInput().getCode()
-            Method getKeyInput = kb.getClass().getMethod("getKeyInput");
-            Object keyInput = getKeyInput.invoke(kb);
-            if (keyInput != null) {
+            // Get the Key object
+            InputUtil.Key key = InputUtil.fromKeyCode(code, -1);
+            // Set it on the binding
+            Method setBoundKey = kb.getClass().getMethod("setBoundKey", InputUtil.Key.class);
+            setBoundKey.invoke(kb, key);
+        } catch (Exception e) {
+            parsec.LOGGER.warn("Failed to set key code", e);
+        }
+    }
+
+    private static class ConfigData {
+        int guiKeybind = GLFW.GLFW_KEY_RIGHT_SHIFT;
+        Map<String, ModuleConfig> modules = new HashMap<>();
+    }
+
+    private static class ModuleConfig {
+        boolean enabled;
+        int x, y;
+        int backgroundColor;
+        int keybind = GLFW.GLFW_KEY_UNKNOWN;
+    }
+}

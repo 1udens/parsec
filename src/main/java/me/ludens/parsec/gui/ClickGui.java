@@ -9,6 +9,8 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import java.util.ArrayList;
 import java.util.List;
+import me.ludens.parsec.config.ConfigManager;
+import org.lwjgl.glfw.GLFW;
 
 public class ClickGui extends Screen {
     private HudModule selectedModule = null;
@@ -16,6 +18,8 @@ public class ClickGui extends Screen {
     private TextFieldWidget hexInput;
     private TextFieldWidget alphaInput;
     private final List<ColorSlider> colorSliders = new ArrayList<>();
+    private ButtonWidget keybindButton;
+    private boolean awaitingKeybind = false;
 
     public ClickGui() {
         super(Text.of("Parsec ClickGUI"));
@@ -43,6 +47,15 @@ public class ClickGui extends Screen {
             }
         }).dimensions(150, 40, 100, 20).build();
         this.addDrawableChild(toggleButton);
+
+        this.addDrawableChild(toggleButton);
+
+// Keybind button
+        keybindButton = ButtonWidget.builder(Text.of("Key: None"), button -> {
+            awaitingKeybind = true;
+            button.setMessage(Text.of("Press a key..."));
+        }).dimensions(150, 210, 100, 20).build();
+        this.addDrawableChild(keybindButton);
 
         // Hex Input
         hexInput = new TextFieldWidget(textRenderer, 150, 70, 80, 20, Text.of("Hex"));
@@ -116,6 +129,7 @@ public class ClickGui extends Screen {
         hexInput.setText(hex);
         alphaInput.setText(alpha);
         updateToggleButtonText();
+        updateKeybindButtonText();
         hideSettings(false);
     }
 
@@ -126,6 +140,43 @@ public class ClickGui extends Screen {
         for (ColorSlider slider : colorSliders) {
             slider.visible = !hide;
         }
+        if (keybindButton != null) keybindButton.visible = !hide;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (awaitingKeybind && selectedModule != null) {
+            awaitingKeybind = false;
+
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                ConfigManager.setKeyCode(selectedModule.keyBinding, GLFW.GLFW_KEY_UNKNOWN);
+                keybindButton.setMessage(Text.of("Key: None"));
+            } else {
+                ConfigManager.setKeyCode(selectedModule.keyBinding, keyCode);
+                String keyName = GLFW.glfwGetKeyName(keyCode, scanCode);
+                keybindButton.setMessage(Text.of("Key: " + (keyName != null ? keyName.toUpperCase() : "Unknown")));
+            }
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private void updateKeybindButtonText() {
+        if (selectedModule != null && keybindButton != null) {
+            Integer keyCode = ConfigManager.getKeyCode(selectedModule.keyBinding);
+            if (keyCode == null || keyCode == GLFW.GLFW_KEY_UNKNOWN) {
+                keybindButton.setMessage(Text.of("Key: None"));
+            } else {
+                String keyName = GLFW.glfwGetKeyName(keyCode, 0);
+                keybindButton.setMessage(Text.of("Key: " + (keyName != null ? keyName.toUpperCase() : "Unknown")));
+            }
+        }
+    }
+
+    @Override
+    public void close() {
+        ConfigManager.save();
+        super.close();
     }
 
     @Override
