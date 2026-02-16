@@ -8,7 +8,6 @@ import me.ludens.parsec.systems.HudModule;
 import me.ludens.parsec.systems.ModuleManager;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.*;
@@ -18,26 +17,16 @@ import java.util.Map;
 
 /**
  * Handles saving and loading configuration to/from JSON files.
- * 
- * Learning Note: GSON is a library that converts Java objects to JSON
- * and vice versa. This makes it easy to save configuration.
+ * UPDATED for Minecraft 1.21.11 API
  */
 public class ConfigManager {
-    // GSON instance with pretty printing enabled
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .create();
     
-    // File locations
     private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir();
     private static final File CONFIG_FILE = CONFIG_DIR.resolve("parsec.json").toFile();
 
-    /**
-     * Save all module settings to config file.
-     * 
-     * Learning Note: This uses try-with-resources (try (...)) which automatically
-     * closes the FileWriter when done, even if an error occurs.
-     */
     public static void save() {
         try {
             ConfigData data = new ConfigData();
@@ -89,9 +78,6 @@ public class ConfigManager {
         }
     }
 
-    /**
-     * Load all module settings from config file.
-     */
     public static void load() {
         if (!CONFIG_FILE.exists()) {
             Parsec.LOGGER.info("No config file found at {}, using defaults", CONFIG_FILE.getPath());
@@ -118,7 +104,6 @@ public class ConfigManager {
             for (HudModule module : ModuleManager.INSTANCE.getModules()) {
                 ModuleConfig config = data.modules.get(module.getName());
                 if (config != null) {
-                    // Restore module state
                     module.setEnabled(config.enabled);
                     module.setX(config.x);
                     module.setY(config.y);
@@ -149,15 +134,14 @@ public class ConfigManager {
 
     /**
      * Get the key code from a KeyBinding.
-     * 
-     * Learning Note: We use reflection here because KeyBinding's internal
-     * structure might vary between Minecraft versions.
+     * FIXED for Minecraft 1.21.11 - uses defaultKey instead of getBoundKey()
      */
     public static Integer getKeyCode(KeyBinding kb) {
         if (kb == null) return null;
         
         try {
-            return kb.getBoundKey().getCode();
+            // In 1.21.11, we access the default key directly
+            return kb.getDefaultKey().getCode();
         } catch (Exception e) {
             Parsec.LOGGER.debug("Failed to get key code", e);
             return GLFW.GLFW_KEY_UNKNOWN;
@@ -166,12 +150,16 @@ public class ConfigManager {
 
     /**
      * Set a key code for a KeyBinding.
+     * FIXED for Minecraft 1.21.11 - uses setBoundKey with proper Key creation
      */
     public static void setKeyCode(KeyBinding kb, int code) {
         if (kb == null) return;
         
         try {
-            InputUtil.Key key = InputUtil.fromKeyCode(code, -1);
+            // In 1.21.11, we need to create a Key from the code differently
+            // Use the existing default key type
+            var keyType = kb.getDefaultKey().getCategory();
+            var key = new net.minecraft.client.util.InputUtil.Key(keyType, code);
             kb.setBoundKey(key);
         } catch (Exception e) {
             Parsec.LOGGER.warn("Failed to set key code", e);
@@ -180,7 +168,6 @@ public class ConfigManager {
 
     /**
      * Reset all settings to defaults.
-     * Useful for troubleshooting or starting fresh.
      */
     public static void reset() {
         if (CONFIG_FILE.exists()) {
@@ -188,7 +175,6 @@ public class ConfigManager {
             Parsec.LOGGER.info("Config file deleted");
         }
         
-        // Disable all modules and reset positions
         for (HudModule module : ModuleManager.INSTANCE.getModules()) {
             module.setEnabled(false);
             module.setBackgroundColor(0xAA000000);
@@ -198,20 +184,11 @@ public class ConfigManager {
         Parsec.LOGGER.info("Config reset to defaults");
     }
 
-    /**
-     * Inner class representing the entire config file structure.
-     * 
-     * Learning Note: This is a POJO (Plain Old Java Object) that GSON
-     * will serialize to JSON automatically.
-     */
     private static class ConfigData {
         int guiKeybind = GLFW.GLFW_KEY_RIGHT_SHIFT;
         Map<String, ModuleConfig> modules = new HashMap<>();
     }
 
-    /**
-     * Inner class representing a single module's configuration.
-     */
     private static class ModuleConfig {
         boolean enabled;
         int x, y;

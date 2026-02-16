@@ -8,6 +8,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
@@ -16,25 +17,19 @@ import java.util.List;
 
 /**
  * The main GUI for configuring modules.
- * Similar to Meteor Client's ClickGUI.
- * 
- * Learning Note: This extends Screen, which is Minecraft's base class
- * for any full-screen GUI interface.
+ * UPDATED for Minecraft 1.21.11 API
  */
 public class ClickGui extends Screen {
     private HudModule selectedModule = null;
     
-    // Settings panel widgets
     private ButtonWidget toggleButton;
     private TextFieldWidget hexInput;
     private TextFieldWidget alphaInput;
     private final List<ColorSlider> colorSliders = new ArrayList<>();
     private ButtonWidget keybindButton;
     
-    // Keybind capture state
     private boolean awaitingKeybind = false;
     
-    // Category buttons for filtering
     private final List<ButtonWidget> categoryButtons = new ArrayList<>();
     private Category selectedCategory = null;
 
@@ -47,8 +42,6 @@ public class ClickGui extends Screen {
         int leftX = 20;
         int rightX = 200;
         int yOffset = 40;
-
-        // Title rendered at y=20 in render() method
 
         // === LEFT SIDE: Category buttons ===
         yOffset = 40;
@@ -80,7 +73,7 @@ public class ClickGui extends Screen {
         refreshModuleList();
 
         // === RIGHT SIDE: Settings Panel ===
-        rightX = this.width - 250;  // Position from right edge
+        rightX = this.width - 250;
         
         // Toggle Button
         toggleButton = ButtonWidget.builder(
@@ -89,7 +82,7 @@ public class ClickGui extends Screen {
                 if (selectedModule != null) {
                     selectedModule.toggle();
                     updateToggleButtonText();
-                    ConfigManager.save();  // Auto-save on toggle
+                    ConfigManager.save();
                 }
             }
         ).dimensions(rightX, 60, 120, 20).build();
@@ -105,8 +98,6 @@ public class ClickGui extends Screen {
         ).dimensions(rightX, 90, 120, 20).build();
         this.addDrawableChild(keybindButton);
 
-        // Color settings label drawn in render()
-        
         // Hex Input
         hexInput = new TextFieldWidget(textRenderer, rightX, 140, 80, 20, Text.of("Hex"));
         hexInput.setMaxLength(7);
@@ -114,7 +105,7 @@ public class ClickGui extends Screen {
         hexInput.setChangedListener(this::onHexChanged);
         this.addDrawableChild(hexInput);
 
-        // Alpha Input (0-100%)
+        // Alpha Input
         alphaInput = new TextFieldWidget(textRenderer, rightX + 90, 140, 50, 20, Text.of("Alpha"));
         alphaInput.setMaxLength(3);
         alphaInput.setPlaceholder(Text.literal("100"));
@@ -140,21 +131,13 @@ public class ClickGui extends Screen {
             sliderY += 25;
         }
 
-        // Hide settings panel if no module selected
         hideSettings(selectedModule == null);
     }
 
-    /**
-     * Refresh the list of module buttons based on selected category
-     */
     private void refreshModuleList() {
-        // Clear and rebuild to avoid duplicates
         this.clearAndInit();
     }
 
-    /**
-     * Add module buttons to the center area
-     */
     private void addModuleButtons() {
         int centerX = 140;
         int yOffset = 40;
@@ -164,10 +147,9 @@ public class ClickGui extends Screen {
             : ModuleManager.INSTANCE.getModulesByCategory(selectedCategory);
 
         for (HudModule module : modulesToShow) {
-            // Color the button based on enabled state
             String displayName = module.getName();
             if (module.isEnabled()) {
-                displayName = "§a" + displayName;  // Green if enabled
+                displayName = "§a" + displayName;
             }
 
             ButtonWidget moduleButton = ButtonWidget.builder(
@@ -183,22 +165,16 @@ public class ClickGui extends Screen {
         }
     }
 
-    /**
-     * Update the settings panel when a module is selected
-     */
     private void updateSettingsPanel() {
         if (selectedModule == null) return;
 
-        // Get current values
         String hex = String.format("#%06X", 
             (selectedModule.getBackgroundColor() & 0xFFFFFF));
         int alphaValue = (selectedModule.getBackgroundColor() >> 24) & 0xFF;
-        String alpha = String.valueOf((int)(alphaValue / 2.55));  // Convert to 0-100
+        String alpha = String.valueOf((int)(alphaValue / 2.55));
 
-        // Refresh UI to update sliders
         this.clearAndInit();
 
-        // Restore values
         if (hexInput != null) hexInput.setText(hex);
         if (alphaInput != null) alphaInput.setText(alpha);
         updateToggleButtonText();
@@ -206,9 +182,6 @@ public class ClickGui extends Screen {
         hideSettings(false);
     }
 
-    /**
-     * Update toggle button text based on module state
-     */
     private void updateToggleButtonText() {
         if (selectedModule != null && toggleButton != null) {
             String state = selectedModule.isEnabled() ? "§aON" : "§cOFF";
@@ -216,48 +189,33 @@ public class ClickGui extends Screen {
         }
     }
 
-    /**
-     * Handle hex color input changes
-     */
     private void onHexChanged(String newHex) {
         if (selectedModule == null) return;
         
-        // Validate hex format
         String hex = newHex.startsWith("#") ? newHex.substring(1) : newHex;
         if (hex.length() != 6) return;
         
         try {
             int currentAlpha = (selectedModule.getBackgroundColor() >> 24) & 0xFF;
             selectedModule.updateColor(newHex, currentAlpha);
-        } catch (NumberFormatException ignored) {
-            // Invalid hex, ignore
-        }
+        } catch (NumberFormatException ignored) {}
     }
 
-    /**
-     * Handle alpha input changes (0-100 scale)
-     */
     private void onAlphaChanged(String newAlpha) {
         if (selectedModule == null || newAlpha.isEmpty()) return;
         
         try {
             int alphaPercent = Integer.parseInt(newAlpha);
-            alphaPercent = Math.max(0, Math.min(100, alphaPercent));  // Clamp 0-100
+            alphaPercent = Math.max(0, Math.min(100, alphaPercent));
             
-            // Convert 0-100 to 0-255
             int alpha255 = (int)(alphaPercent * 2.55);
             
             String hex = String.format("#%06X", 
                 (selectedModule.getBackgroundColor() & 0xFFFFFF));
             selectedModule.updateColor(hex, alpha255);
-        } catch (NumberFormatException ignored) {
-            // Invalid number, ignore
-        }
+        } catch (NumberFormatException ignored) {}
     }
 
-    /**
-     * Update keybind button text
-     */
     private void updateKeybindButtonText() {
         if (selectedModule == null || keybindButton == null) return;
         
@@ -271,9 +229,6 @@ public class ClickGui extends Screen {
         }
     }
 
-    /**
-     * Show or hide the settings panel
-     */
     private void hideSettings(boolean hide) {
         if (toggleButton != null) toggleButton.visible = !hide;
         if (hexInput != null) hexInput.setVisible(!hide);
@@ -285,42 +240,46 @@ public class ClickGui extends Screen {
         }
     }
 
+    /**
+     * FIXED for Minecraft 1.21.11: Now takes KeyInput instead of int parameters
+     */
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Handle keybind capture
+    public boolean keyPressed(InputUtil.Key key, int scanCode, int modifiers) {
+        int keyCode = key.getCode();
+        
         if (awaitingKeybind && selectedModule != null) {
             awaitingKeybind = false;
 
             if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-                // Clear keybind
                 ConfigManager.setKeyCode(selectedModule.getKeyBinding(), GLFW.GLFW_KEY_UNKNOWN);
                 keybindButton.setMessage(Text.of("Key: None"));
             } else {
-                // Set new keybind
                 ConfigManager.setKeyCode(selectedModule.getKeyBinding(), keyCode);
                 String keyName = GLFW.glfwGetKeyName(keyCode, scanCode);
                 keybindButton.setMessage(Text.of("Key: " + 
                     (keyName != null ? keyName.toUpperCase() : "Unknown")));
             }
             
-            ConfigManager.save();  // Auto-save keybind changes
+            ConfigManager.save();
             return true;
         }
         
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(key, scanCode, modifiers);
     }
 
     @Override
     public void close() {
-        // Save config when GUI is closed
         ConfigManager.save();
         super.close();
     }
 
+    /**
+     * FIXED for Minecraft 1.21.11: renderBackground signature changed
+     */
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Draw semi-transparent background
-        this.renderBackground(context, mouseX, mouseY, delta);
+        // Draw background - method signature changed in 1.21.11
+        super.render(context, mouseX, mouseY, delta);
         
         // Draw title
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, 
@@ -337,14 +296,10 @@ public class ClickGui extends Screen {
             context.drawTextWithShadow(this.textRenderer, 
                 selectedModule.getDescription(), rightX, 120, 0x888888);
         }
-        
-        // Render all widgets
-        super.render(context, mouseX, mouseY, delta);
     }
 
     @Override
     public boolean shouldPause() {
-        // Don't pause the game when this GUI is open
         return false;
     }
 }

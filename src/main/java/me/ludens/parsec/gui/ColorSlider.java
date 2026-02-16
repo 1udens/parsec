@@ -4,6 +4,10 @@ import me.ludens.parsec.systems.HudModule;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.text.Text;
 
+/**
+ * Color slider for adjusting RGB values.
+ * UPDATED to use getters/setters instead of direct field access
+ */
 public class ColorSlider extends SliderWidget {
     private final HudModule module;
     private final Channel channel;
@@ -35,7 +39,8 @@ public class ColorSlider extends SliderWidget {
         if (module == null) return;
 
         int newChannelValue = (int) (this.value * 255);
-        int currentARGB = module.backgroundColor;
+        // FIXED: Use getter instead of direct field access
+        int currentARGB = module.getBackgroundColor();
 
         int a = (currentARGB >> 24) & 0xFF;
         int r = (currentARGB >> 16) & 0xFF;
@@ -48,17 +53,19 @@ public class ColorSlider extends SliderWidget {
             case BLUE -> b = newChannelValue;
         }
 
-        module.backgroundColor = (a << 24) | (r << 16) | (g << 8) | b;
+        // FIXED: Use setter instead of direct field access
+        module.setBackgroundColor((a << 24) | (r << 16) | (g << 8) | b);
 
         if (onUpdate != null) onUpdate.run();
     }
 
     private int getChannelValue() {
         if (module == null) return 0;
+        // FIXED: Use getter instead of direct field access
         return switch (channel) {
-            case RED -> (module.backgroundColor >> 16) & 0xFF;
-            case GREEN -> (module.backgroundColor >> 8) & 0xFF;
-            case BLUE -> module.backgroundColor & 0xFF;
+            case RED -> (module.getBackgroundColor() >> 16) & 0xFF;
+            case GREEN -> (module.getBackgroundColor() >> 8) & 0xFF;
+            case BLUE -> module.getBackgroundColor() & 0xFF;
         };
     }
 }
