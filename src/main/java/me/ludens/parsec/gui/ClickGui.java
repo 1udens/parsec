@@ -1,6 +1,7 @@
 package me.ludens.parsec.gui;
 
 import me.ludens.parsec.config.ConfigManager;
+import me.ludens.parsec.input.InputHandler;
 import me.ludens.parsec.systems.Category;
 import me.ludens.parsec.systems.HudModule;
 import me.ludens.parsec.systems.ModuleManager;
@@ -16,8 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The main GUI for configuring modules.
- * UPDATED for Minecraft 1.21.11 API
+ * Configuration GUI for the mod.
+ * UPDATED to work with the new Keybind system (similar to Meteor Client)
+ * 
+ * Learning Note: Now supports binding mouse buttons and modifier keys!
  */
 public class ClickGui extends Screen {
     private HudModule selectedModule = null;
@@ -29,6 +32,7 @@ public class ClickGui extends Screen {
     private ButtonWidget keybindButton;
     
     private boolean awaitingKeybind = false;
+    private boolean bindingGuiKey = false; // True when binding GUI key instead of module key
     
     private final List<ButtonWidget> categoryButtons = new ArrayList<>();
     private Category selectedCategory = null;
@@ -40,7 +44,7 @@ public class ClickGui extends Screen {
     @Override
     protected void init() {
         int leftX = 20;
-        int rightX = 200;
+        int rightX = this.width - 250;
         int yOffset = 40;
 
         // === LEFT SIDE: Category buttons ===
@@ -69,69 +73,78 @@ public class ClickGui extends Screen {
         ).dimensions(leftX, yOffset, 100, 20).build();
         this.addDrawableChild(allButton);
 
+        // Add GUI keybind button
+        yOffset += 30;
+        ButtonWidget guiKeybindButton = ButtonWidget.builder(
+            Text.of("GUI Key: " + InputHandler.getGuiKeybind().getName()),
+            button -> {
+                awaitingKeybind = true;
+                bindingGuiKey = true;
+                button.setMessage(Text.of("Press a key..."));
+            }
+        ).dimensions(leftX, yOffset, 100, 20).build();
+        this.addDrawableChild(guiKeybindButton);
+
         // === CENTER: Module List ===
-        refreshModuleList();
+        addModuleButtons();
 
         // === RIGHT SIDE: Settings Panel ===
-        rightX = this.width - 250;
-        
-        // Toggle Button
-        toggleButton = ButtonWidget.builder(
-            Text.of("Status: Unknown"), 
-            button -> {
-                if (selectedModule != null) {
+        if (selectedModule != null) {
+            // Toggle Button
+            toggleButton = ButtonWidget.builder(
+                Text.of("Status: Unknown"), 
+                button -> {
                     selectedModule.toggle();
                     updateToggleButtonText();
                     ConfigManager.save();
                 }
-            }
-        ).dimensions(rightX, 60, 120, 20).build();
-        this.addDrawableChild(toggleButton);
+            ).dimensions(rightX, 60, 120, 20).build();
+            this.addDrawableChild(toggleButton);
 
-        // Keybind Button
-        keybindButton = ButtonWidget.builder(
-            Text.of("Key: None"), 
-            button -> {
-                awaitingKeybind = true;
-                button.setMessage(Text.of("Press a key..."));
-            }
-        ).dimensions(rightX, 90, 120, 20).build();
-        this.addDrawableChild(keybindButton);
+            // Keybind Button - shows current keybind name
+            keybindButton = ButtonWidget.builder(
+                Text.of("Key: " + selectedModule.getKeybind().getName()), 
+                button -> {
+                    awaitingKeybind = true;
+                    bindingGuiKey = false;
+                    button.setMessage(Text.of("Press a key..."));
+                }
+            ).dimensions(rightX, 90, 150, 20).build();
+            this.addDrawableChild(keybindButton);
 
-        // Hex Input
-        hexInput = new TextFieldWidget(textRenderer, rightX, 140, 80, 20, Text.of("Hex"));
-        hexInput.setMaxLength(7);
-        hexInput.setPlaceholder(Text.literal("#000000"));
-        hexInput.setChangedListener(this::onHexChanged);
-        this.addDrawableChild(hexInput);
+            // Hex Input
+            hexInput = new TextFieldWidget(textRenderer, rightX, 140, 80, 20, Text.of("Hex"));
+            hexInput.setMaxLength(7);
+            hexInput.setPlaceholder(Text.literal("#000000"));
+            hexInput.setChangedListener(this::onHexChanged);
+            this.addDrawableChild(hexInput);
 
-        // Alpha Input
-        alphaInput = new TextFieldWidget(textRenderer, rightX + 90, 140, 50, 20, Text.of("Alpha"));
-        alphaInput.setMaxLength(3);
-        alphaInput.setPlaceholder(Text.literal("100"));
-        alphaInput.setChangedListener(this::onAlphaChanged);
-        this.addDrawableChild(alphaInput);
+            // Alpha Input
+            alphaInput = new TextFieldWidget(textRenderer, rightX + 90, 140, 50, 20, Text.of("Alpha"));
+            alphaInput.setMaxLength(3);
+            alphaInput.setPlaceholder(Text.literal("100"));
+            alphaInput.setChangedListener(this::onAlphaChanged);
+            this.addDrawableChild(alphaInput);
 
-        // RGB Sliders
-        colorSliders.clear();
-        int sliderY = 170;
-        for (ColorSlider.Channel channel : ColorSlider.Channel.values()) {
-            ColorSlider slider = new ColorSlider(
-                rightX, sliderY, 150, 20, 
-                selectedModule, channel, 
-                () -> {
-                    if (selectedModule != null) {
+            // RGB Sliders
+            colorSliders.clear();
+            int sliderY = 170;
+            for (ColorSlider.Channel channel : ColorSlider.Channel.values()) {
+                ColorSlider slider = new ColorSlider(
+                    rightX, sliderY, 150, 20, 
+                    selectedModule, channel, 
+                    () -> {
                         hexInput.setText(String.format("#%06X", 
                             (selectedModule.getBackgroundColor() & 0xFFFFFF)));
                     }
-                }
-            );
-            colorSliders.add(slider);
-            this.addDrawableChild(slider);
-            sliderY += 25;
-        }
+                );
+                colorSliders.add(slider);
+                this.addDrawableChild(slider);
+                sliderY += 25;
+            }
 
-        hideSettings(selectedModule == null);
+            updateSettingsPanel();
+        }
     }
 
     private void refreshModuleList() {
@@ -156,7 +169,7 @@ public class ClickGui extends Screen {
                 Text.of(displayName), 
                 button -> {
                     this.selectedModule = module;
-                    updateSettingsPanel();
+                    this.clearAndInit();
                 }
             ).dimensions(centerX, yOffset, 140, 20).build();
             
@@ -173,13 +186,10 @@ public class ClickGui extends Screen {
         int alphaValue = (selectedModule.getBackgroundColor() >> 24) & 0xFF;
         String alpha = String.valueOf((int)(alphaValue / 2.55));
 
-        this.clearAndInit();
-
         if (hexInput != null) hexInput.setText(hex);
         if (alphaInput != null) alphaInput.setText(alpha);
         updateToggleButtonText();
         updateKeybindButtonText();
-        hideSettings(false);
     }
 
     private void updateToggleButtonText() {
@@ -219,52 +229,94 @@ public class ClickGui extends Screen {
     private void updateKeybindButtonText() {
         if (selectedModule == null || keybindButton == null) return;
         
-        Integer keyCode = ConfigManager.getKeyCode(selectedModule.getKeyBinding());
-        if (keyCode == null || keyCode == GLFW.GLFW_KEY_UNKNOWN) {
-            keybindButton.setMessage(Text.of("Key: None"));
-        } else {
-            String keyName = GLFW.glfwGetKeyName(keyCode, 0);
-            keybindButton.setMessage(Text.of("Key: " + 
-                (keyName != null ? keyName.toUpperCase() : "Unknown")));
-        }
-    }
-
-    private void hideSettings(boolean hide) {
-        if (toggleButton != null) toggleButton.visible = !hide;
-        if (hexInput != null) hexInput.setVisible(!hide);
-        if (alphaInput != null) alphaInput.setVisible(!hide);
-        if (keybindButton != null) keybindButton.visible = !hide;
-        
-        for (ColorSlider slider : colorSliders) {
-            slider.visible = !hide;
-        }
+        // Use the getName() method from Keybind which shows modifiers
+        keybindButton.setMessage(Text.of("Key: " + selectedModule.getKeybind().getName()));
     }
 
     /**
-     * FIXED for Minecraft 1.21.11: Now takes KeyInput instead of int parameters
+     * Handle key presses for keybind assignment
+     * 
+     * Learning Note: This now captures modifier keys (Shift, Ctrl, Alt)
+     * and creates keybinds that include them, just like Meteor Client!
      */
     @Override
     public boolean keyPressed(InputUtil.Key key, int scanCode, int modifiers) {
         int keyCode = key.getCode();
         
-        if (awaitingKeybind && selectedModule != null) {
+        if (awaitingKeybind) {
             awaitingKeybind = false;
 
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-                ConfigManager.setKeyCode(selectedModule.getKeyBinding(), GLFW.GLFW_KEY_UNKNOWN);
-                keybindButton.setMessage(Text.of("Key: None"));
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                // Cancel binding
+                if (bindingGuiKey) {
+                    this.clearAndInit();
+                } else {
+                    updateKeybindButtonText();
+                }
+                return true;
+            }
+
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                // Clear binding
+                if (bindingGuiKey) {
+                    InputHandler.getGuiKeybind().clear();
+                } else if (selectedModule != null) {
+                    selectedModule.getKeybind().clear();
+                }
             } else {
-                ConfigManager.setKeyCode(selectedModule.getKeyBinding(), keyCode);
-                String keyName = GLFW.glfwGetKeyName(keyCode, scanCode);
-                keybindButton.setMessage(Text.of("Key: " + 
-                    (keyName != null ? keyName.toUpperCase() : "Unknown")));
+                // Set new binding with modifiers
+                if (bindingGuiKey) {
+                    InputHandler.setGuiKeybind(true, keyCode, modifiers);
+                } else if (selectedModule != null) {
+                    selectedModule.getKeybind().set(true, keyCode, modifiers);
+                }
             }
             
             ConfigManager.save();
+            this.clearAndInit();
             return true;
         }
         
         return super.keyPressed(key, scanCode, modifiers);
+    }
+
+    /**
+     * Handle mouse button presses for keybind assignment
+     * 
+     * Learning Note: NEW! Now you can bind mouse buttons to modules!
+     */
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (awaitingKeybind) {
+            awaitingKeybind = false;
+
+            // Set mouse button binding (with current modifiers)
+            int modifiers = 0;
+            if (InputUtil.isKeyPressed(this.client.getWindow().getHandle(), GLFW.GLFW_KEY_LEFT_SHIFT) ||
+                InputUtil.isKeyPressed(this.client.getWindow().getHandle(), GLFW.GLFW_KEY_RIGHT_SHIFT)) {
+                modifiers |= GLFW.GLFW_MOD_SHIFT;
+            }
+            if (InputUtil.isKeyPressed(this.client.getWindow().getHandle(), GLFW.GLFW_KEY_LEFT_CONTROL) ||
+                InputUtil.isKeyPressed(this.client.getWindow().getHandle(), GLFW.GLFW_KEY_RIGHT_CONTROL)) {
+                modifiers |= GLFW.GLFW_MOD_CONTROL;
+            }
+            if (InputUtil.isKeyPressed(this.client.getWindow().getHandle(), GLFW.GLFW_KEY_LEFT_ALT) ||
+                InputUtil.isKeyPressed(this.client.getWindow().getHandle(), GLFW.GLFW_KEY_RIGHT_ALT)) {
+                modifiers |= GLFW.GLFW_MOD_ALT;
+            }
+
+            if (bindingGuiKey) {
+                InputHandler.setGuiKeybind(false, button, modifiers);
+            } else if (selectedModule != null) {
+                selectedModule.getKeybind().set(false, button, modifiers);
+            }
+            
+            ConfigManager.save();
+            this.clearAndInit();
+            return true;
+        }
+        
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -273,12 +325,8 @@ public class ClickGui extends Screen {
         super.close();
     }
 
-    /**
-     * FIXED for Minecraft 1.21.11: renderBackground signature changed
-     */
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Draw background - method signature changed in 1.21.11
         super.render(context, mouseX, mouseY, delta);
         
         // Draw title
@@ -295,6 +343,13 @@ public class ClickGui extends Screen {
                 "Settings: " + selectedModule.getName(), rightX, 40, 0xFFFFFF);
             context.drawTextWithShadow(this.textRenderer, 
                 selectedModule.getDescription(), rightX, 120, 0x888888);
+            
+            // Show tip about mouse binding
+            if (awaitingKeybind && !bindingGuiKey) {
+                context.drawTextWithShadow(this.textRenderer,
+                    "Tip: You can bind mouse buttons too!", 
+                    rightX, this.height - 40, 0xFFFF55);
+            }
         }
     }
 

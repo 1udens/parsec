@@ -1,46 +1,32 @@
 package me.ludens.parsec.systems;
 
+import me.ludens.parsec.utils.Keybind;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.option.KeyBinding;
 
 /**
  * Base class for all HUD modules.
+ * UPDATED to use the new Keybind system (similar to Meteor Client)
  * 
- * Learning Note: This is an abstract class, which means:
- * 1. It cannot be instantiated directly
- * 2. Subclasses MUST implement the abstract render() method
- * 3. It provides common functionality for all modules
+ * Learning Note: This now uses our custom Keybind class instead of
+ * Minecraft's KeyBinding, giving us more flexibility and control.
  */
 public abstract class HudModule {
-    // Module properties
     protected final String name;
     protected final String description;
     protected final Category category;
     
-    // State
     private boolean enabled = false;
     
-    // Positioning
     protected int x;
     protected int y;
     
-    // Styling
-    protected int backgroundColor = 0xAA000000; // Semi-transparent black (ARGB format)
-    protected int textColor = 0xFFFFFFFF;       // White
+    protected int backgroundColor = 0xAA000000;
+    protected int textColor = 0xFFFFFFFF;
     
-    // Keybinding
-    public KeyBinding keyBinding;
+    // NEW: Use our custom Keybind instead of Minecraft's KeyBinding
+    protected Keybind keybind = new Keybind();
 
-    /**
-     * Constructor for HudModule
-     * 
-     * @param name - Display name of the module
-     * @param description - Brief description of what it does
-     * @param category - Which category it belongs to
-     * @param x - Initial X position on screen
-     * @param y - Initial Y position on screen
-     */
     public HudModule(String name, String description, Category category, int x, int y) {
         this.name = name;
         this.description = description;
@@ -50,25 +36,19 @@ public abstract class HudModule {
     }
 
     /**
-     * This method is called every frame when the module is enabled.
-     * Subclasses must implement this to draw their content.
-     * 
-     * Learning Note: The 'abstract' keyword means subclasses MUST provide
-     * their own implementation of this method.
+     * Render the module on screen
      */
     public abstract void render(DrawContext drawContext, TextRenderer textRenderer);
 
     /**
-     * Called when the module is enabled.
-     * Override this in subclasses to add custom enable logic.
+     * Called when the module is enabled
      */
     public void onEnable() {
         // Override in subclasses if needed
     }
 
     /**
-     * Called when the module is disabled.
-     * Override this in subclasses to add custom disable logic.
+     * Called when the module is disabled
      */
     public void onDisable() {
         // Override in subclasses if needed
@@ -85,7 +65,7 @@ public abstract class HudModule {
      * Enable or disable the module
      */
     public void setEnabled(boolean enabled) {
-        if (this.enabled == enabled) return; // No change needed
+        if (this.enabled == enabled) return;
         
         this.enabled = enabled;
         
@@ -97,17 +77,21 @@ public abstract class HudModule {
     }
 
     /**
-     * Update the background color from hex and alpha values
+     * Check if the given input matches this module's keybind
      * 
-     * Learning Note: Colors in Java are often stored as ARGB (Alpha, Red, Green, Blue)
-     * Each component is 1 byte (0-255), packed into a 32-bit integer.
-     * Format: 0xAARRGGBB
+     * Learning Note: This is similar to Meteor's Macro.onAction()
+     * It checks if the key/button press matches our keybind.
+     */
+    public boolean matchesKeybind(boolean isKey, int value, int modifiers) {
+        return keybind.matches(isKey, value, modifiers);
+    }
+
+    /**
+     * Update the background color from hex and alpha values
      */
     public void updateColor(String hex, int alpha) {
         try {
-            // Remove '#' if present and parse as hexadecimal
             int rgb = Integer.parseInt(hex.replace("#", ""), 16);
-            // Combine alpha (shifted left 24 bits) with RGB
             this.backgroundColor = (alpha << 24) | (rgb & 0xFFFFFF);
         } catch (NumberFormatException e) {
             // Invalid hex color, ignore
@@ -116,29 +100,18 @@ public abstract class HudModule {
 
     /**
      * Draw a background rectangle behind text
-     * Uses default height of 10 pixels
      */
     protected void drawBackground(DrawContext drawContext, int width) {
         drawBackground(drawContext, width, 10);
     }
 
-    /**
-     * Draw a background rectangle behind text
-     * 
-     * @param drawContext - Minecraft's drawing context
-     * @param width - Width of the text/content
-     * @param height - Height of the background
-     * 
-     * Learning Note: The fill() method draws a filled rectangle.
-     * We add/subtract 5 pixels for padding around the text.
-     */
     protected void drawBackground(DrawContext drawContext, int width, int height) {
         drawContext.fill(
-            x - 5,              // Left edge (with padding)
-            y - 5,              // Top edge (with padding)
-            x + width + 5,      // Right edge (with padding)
-            y + height + 5,     // Bottom edge (with padding)
-            backgroundColor     // Color (ARGB format)
+            x - 5,
+            y - 5,
+            x + width + 5,
+            y + height + 5,
+            backgroundColor
         );
     }
 
@@ -191,11 +164,12 @@ public abstract class HudModule {
         this.textColor = textColor;
     }
 
-    public KeyBinding getKeyBinding() {
-        return keyBinding;
+    // NEW: Keybind getter/setter
+    public Keybind getKeybind() {
+        return keybind;
     }
 
-    public void setKeyBinding(KeyBinding keyBinding) {
-        this.keyBinding = keyBinding;
+    public void setKeybind(Keybind keybind) {
+        this.keybind = keybind;
     }
 }

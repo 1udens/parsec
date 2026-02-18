@@ -3,12 +3,11 @@ package me.ludens.parsec.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.ludens.parsec.Parsec;
-import me.ludens.parsec.input.KeybindManager;
+import me.ludens.parsec.input.InputHandler;
 import me.ludens.parsec.systems.HudModule;
 import me.ludens.parsec.systems.ModuleManager;
+import me.ludens.parsec.utils.Keybind;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.option.KeyBinding;
-import org.lwjgl.glfw.GLFW;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -16,8 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Handles saving and loading configuration to/from JSON files.
- * UPDATED for Minecraft 1.21.11 API
+ * Handles saving and loading configuration.
+ * UPDATED to work with the new Keybind system (similar to Meteor Client)
  */
 public class ConfigManager {
     private static final Gson GSON = new GsonBuilder()
@@ -32,14 +31,8 @@ public class ConfigManager {
             ConfigData data = new ConfigData();
 
             // Save GUI keybind
-            try {
-                Integer code = getKeyCode(KeybindManager.GUI_KEY);
-                if (code != null && code != GLFW.GLFW_KEY_UNKNOWN) {
-                    data.guiKeybind = code;
-                }
-            } catch (Exception e) {
-                Parsec.LOGGER.warn("Failed to save GUI keybind", e);
-            }
+            Keybind guiKeybind = InputHandler.getGuiKeybind();
+            data.guiKeybind = new KeybindData(guiKeybind);
 
             // Save each module's settings
             for (HudModule module : ModuleManager.INSTANCE.getModules()) {
@@ -49,15 +42,9 @@ public class ConfigManager {
                 config.y = module.getY();
                 config.backgroundColor = module.getBackgroundColor();
                 config.textColor = module.getTextColor();
-
-                // Save module keybind
-                try {
-                    Integer code = getKeyCode(module.getKeyBinding());
-                    config.keybind = (code != null) ? code : GLFW.GLFW_KEY_UNKNOWN;
-                } catch (Exception e) {
-                    config.keybind = GLFW.GLFW_KEY_UNKNOWN;
-                    Parsec.LOGGER.warn("Failed to save keybind for {}", module.getName(), e);
-                }
+                
+                // Save module keybind using our new system
+                config.keybind = new KeybindData(module.getKeybind());
 
                 data.modules.put(module.getName(), config);
             }
@@ -72,7 +59,7 @@ public class ConfigManager {
                 GSON.toJson(data, writer);
             }
             
-            Parsec.LOGGER.info("Config saved successfully to {}", CONFIG_FILE.getPath());
+            Parsec.LOGGER.info("Config saved successfully");
         } catch (Exception e) {
             Parsec.LOGGER.error("Failed to save config", e);
         }
@@ -80,7 +67,7 @@ public class ConfigManager {
 
     public static void load() {
         if (!CONFIG_FILE.exists()) {
-            Parsec.LOGGER.info("No config file found at {}, using defaults", CONFIG_FILE.getPath());
+            Parsec.LOGGER.info("No config file found, using defaults");
             return;
         }
 
@@ -92,12 +79,12 @@ public class ConfigManager {
             }
 
             // Load GUI keybind
-            if (data.guiKeybind != 0 && data.guiKeybind != GLFW.GLFW_KEY_UNKNOWN) {
-                try {
-                    setKeyCode(KeybindManager.GUI_KEY, data.guiKeybind);
-                } catch (Exception e) {
-                    Parsec.LOGGER.warn("Failed to restore GUI keybind", e);
-                }
+            if (data.guiKeybind != null) {
+                InputHandler.setGuiKeybind(
+                    data.guiKeybind.isKey,
+                    data.guiKeybind.value,
+                    data.guiKeybind.modifiers
+                );
             }
 
             // Load each module's settings
@@ -111,81 +98,48 @@ public class ConfigManager {
                     module.setTextColor(config.textColor);
 
                     // Restore keybind
-                    if (config.keybind != 0 && config.keybind != GLFW.GLFW_KEY_UNKNOWN) {
-                        try {
-                            setKeyCode(module.getKeyBinding(), config.keybind);
-                        } catch (Exception e) {
-                            Parsec.LOGGER.warn("Failed to restore keybind for {}", 
-                                module.getName(), e);
-                        }
+                    if (config.keybind != null) {
+                        module.getKeybind().set(
+                            config.keybind.isKey,
+                            config.keybind.value,
+                            config.keybind.modifiers
+                        );
                     }
-                } else {
-                    Parsec.LOGGER.debug("No config found for module: {}", module.getName());
                 }
             }
 
-            Parsec.LOGGER.info("Config loaded successfully from {}", CONFIG_FILE.getPath());
-        } catch (FileNotFoundException e) {
-            Parsec.LOGGER.warn("Config file not found: {}", CONFIG_FILE.getPath());
+            Parsec.LOGGER.info("Config loaded successfully");
         } catch (Exception e) {
             Parsec.LOGGER.error("Failed to load config", e);
         }
     }
 
     /**
-     * Get the key code from a KeyBinding.
-     * FIXED for Minecraft 1.21.11 - uses defaultKey instead of getBoundKey()
-     */
-    public static Integer getKeyCode(KeyBinding kb) {
-        if (kb == null) return null;
-        
-        try {
-            // In 1.21.11, we access the default key directly
-            return kb.getDefaultKey().getCode();
-        } catch (Exception e) {
-            Parsec.LOGGER.debug("Failed to get key code", e);
-            return GLFW.GLFW_KEY_UNKNOWN;
-        }
-    }
-
-    /**
-     * Set a key code for a KeyBinding.
-     * FIXED for Minecraft 1.21.11 - uses setBoundKey with proper Key creation
-     */
-    public static void setKeyCode(KeyBinding kb, int code) {
-        if (kb == null) return;
-        
-        try {
-            // In 1.21.11, we need to create a Key from the code differently
-            // Use the existing default key type
-            var keyType = kb.getDefaultKey().getCategory();
-            var key = new net.minecraft.client.util.InputUtil.Key(keyType, code);
-            kb.setBoundKey(key);
-        } catch (Exception e) {
-            Parsec.LOGGER.warn("Failed to set key code", e);
-        }
-    }
-
-    /**
-     * Reset all settings to defaults.
+     * Reset all settings to defaults
      */
     public static void reset() {
         if (CONFIG_FILE.exists()) {
             CONFIG_FILE.delete();
-            Parsec.LOGGER.info("Config file deleted");
         }
         
         for (HudModule module : ModuleManager.INSTANCE.getModules()) {
             module.setEnabled(false);
             module.setBackgroundColor(0xAA000000);
             module.setTextColor(0xFFFFFFFF);
+            module.getKeybind().clear();
         }
         
         Parsec.LOGGER.info("Config reset to defaults");
     }
 
+    /**
+     * Data classes for JSON serialization
+     * 
+     * Learning Note: These simple POJOs (Plain Old Java Objects) are
+     * automatically converted to/from JSON by GSON.
+     */
     private static class ConfigData {
-        int guiKeybind = GLFW.GLFW_KEY_RIGHT_SHIFT;
+        KeybindData guiKeybind;
         Map<String, ModuleConfig> modules = new HashMap<>();
     }
 
@@ -194,6 +148,28 @@ public class ConfigManager {
         int x, y;
         int backgroundColor;
         int textColor;
-        int keybind = GLFW.GLFW_KEY_UNKNOWN;
+        KeybindData keybind;
+    }
+
+    /**
+     * Serializable keybind data
+     * 
+     * Learning Note: This class represents a keybind in a way that
+     * can be easily saved to JSON and loaded back.
+     */
+    private static class KeybindData {
+        boolean isKey;
+        int value;
+        int modifiers;
+
+        // Default constructor for GSON
+        public KeybindData() {}
+
+        // Constructor from Keybind object
+        public KeybindData(Keybind keybind) {
+            this.isKey = keybind.isKey();
+            this.value = keybind.getValue();
+            this.modifiers = keybind.getModifiers();
+        }
     }
 }
